@@ -1,0 +1,109 @@
+# -*- coding: utf-8 -*-
+
+import numpy as np
+import cv2
+from matplotlib import pyplot as plt
+%matplotlib notebook 
+
+
+im = cv2.imread('aerial.jpg',0)
+im = cv2.resize(im,(180,150))
+
+clicklog = np.zeros(im.shape)
+
+fourier = cv2.dft(np.float32(im),flags = cv2.DFT_COMPLEX_OUTPUT)
+dft_shift = np.fft.fftshift(fourier)
+magnitude_spectrum = 20*np.log(cv2.magnitude(dft_shift[:,:,0],dft_shift[:,:,1]))
+
+
+dft_ishift = np.fft.ifftshift(dft_shift)
+img_back = cv2.idft(dft_ishift)
+img_back = cv2.magnitude(img_back[:,:,0],img_back[:,:,1])
+
+
+def addClick(x,y,click):
+    a = click
+    a[y,x] = 1
+    return a
+
+
+def mkWave(x, y):
+    b=np.zeros(im.shape)
+    b[y, x] = 1
+    wave = cv2.idft(b)
+    return wave
+
+
+def reset(x, y, a):
+    c = np.zeros(dft_shift.shape)
+    c[:,:,0] = a
+    c[:,:,1] = a 
+    copy = dft_shift*c
+    copy = np.fft.ifftshift(copy)
+    copy = cv2.idft(copy)
+    re = cv2.magnitude(copy[:,:,0],copy[:,:,1])
+    return re
+
+
+def onclick(event):
+    global clicklog, X, Y
+
+    if event.button==1:
+        X=int(round(event.xdata))
+        Y=int(round(event.ydata))
+        
+        a7.plot(X, Y, marker='.', markersize='1')    
+        
+        clicklog = addClick(X, Y, clicklog)
+        
+
+def onkey(event):
+    if event.key == 'q':
+        sys.exit()
+
+
+def onrelease(event):
+    global clicklog, X, Y
+    wave = mkWave(X, Y)
+    a6.imshow(wave, cmap='gray')
+    
+    reim = reset(X, Y, clicklog)
+    reim = np.float32(reim)
+    a4.imshow(reim, cmap='gray')
+    
+    plt.draw()
+    
+
+fig = plt.figure(figsize=(9,4))
+
+a1 = fig.add_subplot(2,3,1)
+a1.imshow(im, cmap='gray')
+a1.set_title('Input Image')
+a1.set_xticks([]), a1.set_yticks([])
+
+a2 = fig.add_subplot(2,3,2)
+a2.imshow(magnitude_spectrum, cmap='gray')
+a2.set_title('Magnitude Spectrum')
+a2.set_xticks([]), a2.set_yticks([])
+
+a3 = fig.add_subplot(2,3,3)
+a3.imshow(img_back, cmap='gray')
+a3.set_title('IFFT')
+a3.set_xticks([]), a3.set_yticks([])
+
+a4 = fig.add_subplot(2,3,4)
+
+a6 = fig.add_subplot(2,3,6)
+
+fig2=plt.figure(figsize=(8,4))
+
+a7 = fig2.add_subplot(1,1,1)
+a7.imshow(magnitude_spectrum, cmap='gray')
+
+plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.5, hspace=0)
+
+
+fig2.canvas.mpl_connect('button_press_event', onclick)
+fig2.canvas.mpl_connect('motion_notify_event', onclick)
+fig2.canvas.mpl_connect('button_release_event', onrelease)
+fig2.canvas.mpl_connect('key_press_event', onkey)
